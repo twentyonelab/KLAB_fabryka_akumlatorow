@@ -1,0 +1,212 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "ui_kits/marketing-site/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Space Grotesk))/i]",
+        "message": "Font not provided by the design system. Available: Space Grotesk."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {},
+    "tokens": [
+      "--accent",
+      "--accent-hover",
+      "--accent-soft",
+      "--bg",
+      "--bg-invert",
+      "--bg-raised",
+      "--bg-sunken",
+      "--c-black",
+      "--c-bone",
+      "--c-carbon",
+      "--c-ember-100",
+      "--c-ember-300",
+      "--c-ember-50",
+      "--c-ember-500",
+      "--c-ember-600",
+      "--c-ember-700",
+      "--c-graphite",
+      "--c-ink",
+      "--c-mist",
+      "--c-paper",
+      "--c-stone",
+      "--c-white",
+      "--dur-base",
+      "--dur-fast",
+      "--dur-slow",
+      "--ease-soft",
+      "--ease-standard",
+      "--fg",
+      "--fg-2",
+      "--fg-3",
+      "--fg-4",
+      "--fg-invert",
+      "--font-body",
+      "--font-display",
+      "--font-mono",
+      "--fs-body",
+      "--fs-h1",
+      "--fs-h2",
+      "--fs-h3",
+      "--fs-hero",
+      "--fs-lead",
+      "--fs-micro",
+      "--fs-small",
+      "--lh-body",
+      "--lh-heading",
+      "--lh-tight",
+      "--lh-ui",
+      "--line",
+      "--line-strong",
+      "--on-accent",
+      "--r-2xl",
+      "--r-lg",
+      "--r-md",
+      "--r-pill",
+      "--r-sm",
+      "--r-xl",
+      "--r-xs",
+      "--shadow-lg",
+      "--shadow-md",
+      "--shadow-pill",
+      "--shadow-sm",
+      "--sp-1",
+      "--sp-10",
+      "--sp-11",
+      "--sp-2",
+      "--sp-3",
+      "--sp-4",
+      "--sp-5",
+      "--sp-6",
+      "--sp-7",
+      "--sp-8",
+      "--sp-9",
+      "--tr-snug",
+      "--tr-tight",
+      "--tr-wide"
+    ],
+    "tokenKinds": {
+      "--c-white": "color",
+      "--c-paper": "color",
+      "--c-bone": "color",
+      "--c-mist": "color",
+      "--c-stone": "color",
+      "--c-graphite": "color",
+      "--c-ink": "color",
+      "--c-carbon": "color",
+      "--c-black": "color",
+      "--c-ember-50": "color",
+      "--c-ember-100": "color",
+      "--c-ember-300": "color",
+      "--c-ember-500": "color",
+      "--c-ember-600": "color",
+      "--c-ember-700": "color",
+      "--bg": "color",
+      "--bg-raised": "color",
+      "--bg-sunken": "color",
+      "--bg-invert": "color",
+      "--fg": "color",
+      "--fg-2": "color",
+      "--fg-3": "color",
+      "--fg-4": "color",
+      "--fg-invert": "color",
+      "--line": "color",
+      "--line-strong": "color",
+      "--accent": "color",
+      "--accent-hover": "color",
+      "--accent-soft": "color",
+      "--on-accent": "color",
+      "--font-display": "font",
+      "--font-body": "font",
+      "--font-mono": "font",
+      "--fs-hero": "other",
+      "--fs-h1": "other",
+      "--fs-h2": "other",
+      "--fs-h3": "other",
+      "--fs-lead": "spacing",
+      "--fs-body": "spacing",
+      "--fs-small": "spacing",
+      "--fs-micro": "spacing",
+      "--lh-tight": "other",
+      "--lh-heading": "other",
+      "--lh-body": "other",
+      "--lh-ui": "other",
+      "--tr-tight": "spacing",
+      "--tr-snug": "spacing",
+      "--tr-wide": "spacing",
+      "--sp-1": "spacing",
+      "--sp-2": "spacing",
+      "--sp-3": "spacing",
+      "--sp-4": "spacing",
+      "--sp-5": "spacing",
+      "--sp-6": "spacing",
+      "--sp-7": "spacing",
+      "--sp-8": "spacing",
+      "--sp-9": "spacing",
+      "--sp-10": "spacing",
+      "--sp-11": "spacing",
+      "--r-xs": "spacing",
+      "--r-sm": "spacing",
+      "--r-md": "spacing",
+      "--r-lg": "spacing",
+      "--r-xl": "spacing",
+      "--r-2xl": "spacing",
+      "--r-pill": "spacing",
+      "--shadow-sm": "shadow",
+      "--shadow-md": "shadow",
+      "--shadow-lg": "shadow",
+      "--shadow-pill": "shadow",
+      "--ease-standard": "other",
+      "--ease-soft": "other",
+      "--dur-fast": "other",
+      "--dur-base": "other",
+      "--dur-slow": "other"
+    },
+    "fontFamilies": [
+      "Space Grotesk"
+    ]
+  }
+}

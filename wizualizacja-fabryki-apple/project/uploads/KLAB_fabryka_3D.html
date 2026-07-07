@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KLAB — interaktywny schemat 3D fabryki</title>
+<style>
+  :root{
+    --pb:#c7ccd6; --paste:#8a6a4a; --acid:#e6c84f; --pp:#4aa3e6;
+    --pbo:#e88a3a; --prod:#43c98a; --panel:#111722; --ink:#e9eef7;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0a0e15;
+    font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:var(--ink)}
+  #app{position:fixed;inset:0}
+  #title{position:fixed;top:14px;left:16px;z-index:5;pointer-events:none}
+  #title h1{margin:0;font-size:19px;letter-spacing:.3px}
+  #title h1 span{color:#7fd0ff}
+  #title p{margin:3px 0 0;font-size:12px;color:#9fb0c7;max-width:520px}
+  .card{background:rgba(17,23,34,.86);border:1px solid #263248;border-radius:12px;
+    backdrop-filter:blur(6px)}
+  #legend{position:fixed;top:14px;right:14px;z-index:5;padding:11px 13px;font-size:12px;width:210px}
+  #legend b{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#8ea3c0}
+  .lg{display:flex;align-items:center;gap:8px;margin-top:7px}
+  .sw{width:14px;height:14px;border-radius:3px;flex:0 0 auto;box-shadow:0 0 8px rgba(255,255,255,.15)}
+  #info{position:fixed;left:16px;bottom:16px;z-index:6;width:340px;max-width:calc(100vw - 32px);
+    padding:15px 16px;display:none}
+  #info h2{margin:0 0 2px;font-size:15px;color:#fff}
+  #info .tag{font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;color:#7fd0ff;margin-bottom:8px}
+  #info p{margin:0;font-size:12.5px;line-height:1.5;color:#cdd8ea}
+  #info .kv{margin-top:9px;font-size:11.5px;color:#9fb0c7;border-top:1px solid #253148;padding-top:8px}
+  #info .kv b{color:#e9eef7}
+  #info .close{position:absolute;top:9px;right:11px;cursor:pointer;color:#7a8aa3;font-size:16px}
+  #hint{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:5;font-size:12px;
+    color:#8ea3c0;background:rgba(17,23,34,.7);padding:6px 14px;border-radius:20px;border:1px solid #263248}
+  #ctrls{position:fixed;right:14px;bottom:16px;z-index:6;display:flex;gap:8px}
+  #ctrls button{background:rgba(17,23,34,.86);border:1px solid #2b3a54;color:#cdd8ea;
+    font-size:12px;padding:8px 12px;border-radius:9px;cursor:pointer}
+  #ctrls button:hover{border-color:#4a76b0;color:#fff}
+  .lbl{font-size:11px;font-weight:600;color:#eaf1ff;background:rgba:none;
+    text-shadow:0 1px 3px #000,0 0 6px #000;pointer-events:none;white-space:nowrap}
+  .lbl.zone{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:#7f93b3;font-weight:700}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    z-index:20;background:#0a0e15;color:#9fb0c7;font-size:14px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="loading">Ładowanie sceny 3D…</div>
+
+<div id="title">
+  <h1><span>KLAB</span> — fabryka z zamkniętą pętlą surowcową</h1>
+  <p>Kompozytowe ogniwa ołowiowo-węglowe z linią recyklingu zużytych akumulatorów (20&nbsp;t/d → 454&nbsp;MWh/rok). Kliknij stację, aby zobaczyć opis i bilans masy.</p>
+</div>
+
+<div id="legend" class="card">
+  <b>Strumienie materiałowe</b>
+  <div class="lg"><span class="sw" style="background:var(--pb)"></span>Ołów metaliczny (Pb)</div>
+  <div class="lg"><span class="sw" style="background:var(--paste)"></span>Pasta ołowiowa (PbSO₄)</div>
+  <div class="lg"><span class="sw" style="background:var(--pbo)"></span>PbO (α/β) po ługowaniu</div>
+  <div class="lg"><span class="sw" style="background:var(--acid)"></span>Elektrolit H₂SO₄ (zawracany)</div>
+  <div class="lg"><span class="sw" style="background:var(--pp)"></span>Tworzywo PP (regranulat)</div>
+  <div class="lg"><span class="sw" style="background:var(--prod)"></span>Gotowe ogniwa KLAB</div>
+</div>
+
+<div id="info" class="card">
+  <span class="close" onclick="hideInfo()">✕</span>
+  <div class="tag" id="i-tag"></div>
+  <h2 id="i-title"></h2>
+  <p id="i-desc"></p>
+  <div class="kv" id="i-kv"></div>
+</div>
+
+<div id="hint">Przeciągnij = obrót · scroll = zoom · klik = szczegóły stacji</div>
+<div id="ctrls">
+  <button id="btn-rot">⏸ Auto-obrót</button>
+  <button id="btn-reset">⟲ Widok</button>
+</div>
+
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+<script>
+const COL = {
+  pb:0xc7ccd6, paste:0x8a6a4a, pbo:0xe88a3a, acid:0xe6c84f, pp:0x4aa3e6, prod:0x43c98a
+};
+
+// ---- Station + flow definitions (positions on the factory floor) ----
+// x = flow direction, z = lateral lane
+const STATIONS = [
+  {id:'in', name:'Wsad: zużyte akumulatory LAB', zone:'we', tag:'Wejście', pos:[-26,0,0], size:[3,2.4,3], color:0x59627a,
+   desc:'Standardowe zużyte akumulatory kwasowo-ołowiowe (LAB) — nominalnie 20 t/dobę. Ważenie brutto/netto, kontrola szczelności, identyfikacja partii w MES/LIMS.',
+   kv:'<b>Przepustowość:</b> 20 t/d · praca 2-zmianowa (16 h) · dostępność ≥85%'},
+
+  {id:'break', name:'Breaker + separacja sink-float', zone:'rec', tag:'Recykling LAB', pos:[-18,0,0], size:[3.4,2.6,3.4], color:0x3f6f8a,
+   desc:'Mechaniczne otwieranie i kruszenie, odsysanie elektrolitu, rozdział gęstościowy (ciecz 1,2–1,4 g/cm³) i przesiewanie na 4 frakcje: Pb metaliczny, pasta, H₂SO₄, PP. Pasta wstępnie odwadniana w wirówce.',
+   kv:'<b>Wydajność węzła:</b> 1,2–1,5 t/h (bufor do 2 t/h)'},
+
+  {id:'melt', name:'Niskotemperaturowy wytop ~330 °C', zone:'rec', tag:'Odzysk Pb', pos:[-8,0,-7], size:[3,3,3], color:0xb5532b,
+   desc:'Frakcja metaliczna topiona w 300–400 °C (tuż nad Tm Pb = 327,5 °C) w piecach tyglowych/indukcyjnych. Łagodny reżim ogranicza dross, emisje i zużycie energii. Ciekły Pb kierowany bezpośrednio „hot-to-product”.',
+   kv:'<b>Produkt:</b> Pb ~28–34% m/m ≈ 5,6–6,8 t/d'},
+
+  {id:'hydro', name:'Ługowanie Na₂CO₃ → PbO (α/β)', zone:'rec', tag:'Hydrometalurgia', pos:[-8,0,7], size:[3,3,3], color:0x3f8a5a,
+   desc:'Pasta siarczanowa (PbSO₄/PbO₂/PbO) przetwarzana hydrometalurgicznie ścieżką Na₂CO₃ z kontrolą faz α/β. Powstający Na₂SO₄ wytrącany i odwadniany jako produkt uboczny/handlowy. Obiegi reagentu zamknięte.',
+   kv:'<b>Produkt:</b> PbO ~32–38% m/m ≈ 6,4–7,6 t/d · uboczny: Na₂SO₄'},
+
+  {id:'acid', name:'Uzdatnianie i zawracanie H₂SO₄', zone:'media', tag:'Gospodarka mediów', pos:[-8,0,13], size:[2.6,2,2.6], color:0xb8a233,
+   desc:'Elektrolit po filtracji, korekcie stężenia i chłodzeniu zawracany do procesów pomocniczych (płuczki/neutralizacja). Kondensaty i wody płuczne recyrkulowane — ograniczenie zużycia świeżej wody.',
+   kv:'<b>Strumień:</b> H₂SO₄ ~10–14% m/m ≈ 2,0–2,8 t/d'},
+
+  {id:'pp', name:'Mycie i regranulacja PP', zone:'media', tag:'Gospodarka mediów', pos:[-18,0,10], size:[2.6,2,2.6], color:0x2f78b0,
+   desc:'Obudowy PP myte i regranulowane do ponownego wykorzystania. Element GOZ — minimalizacja odpadów kierowanych na zewnątrz.',
+   kv:'<b>Produkt:</b> regranulat PP ~10–14% m/m ≈ 2,0–2,8 t/d'},
+
+  {id:'elec', name:'Elektroda szkieletowo-siatkowa 3D', zone:'prod', tag:'Produkcja KLAB', pos:[2,0,-4], size:[3.2,2.8,3.2], color:0x6a4fb0,
+   desc:'Rdzeń innowacji: lekka trójwymiarowa siatka węglowa z wtapianymi beleczkami ołowianymi (druk stopionym Pb). Duża powierzchnia czynna, niska rezystancja, brak „hotspotów”. Skala docelowa 18×34 cm → 25×50 cm.',
+   kv:'<b>Zużycie Pb:</b> 8,1 kg/kWh — redukcja 52% vs LAB (17 kg/kWh)'},
+
+  {id:'pack', name:'Pakietyzacja: HC + AGM + bipolar', zone:'prod', tag:'Produkcja KLAB', pos:[10,0,2], size:[3.2,2.8,3.2], color:0x8a4fb0,
+   desc:'Płyty wysoko-porowatego węgla „HC” z obu stron elektrody (bufor mocy / warstwa podwójna, peak-shaving). Separator AGM (elektrolit w macie szklanej). Architektura bipolarna ≥4 V, integralne kontaktowanie.',
+   kv:'<b>Efekt:</b> wysoka moc chwilowa, niska polaryzacja, > trwałość'},
+
+  {id:'assy', name:'Montaż ogniw + formowanie + BMS', zone:'prod', tag:'Produkcja KLAB', pos:[18,0,-2], size:[3.2,2.8,3.2], color:0xa24fa8,
+   desc:'Układanie płyt, impregnacja elektrolitem, zamknięcie w szczelnej obudowie, formowanie elektrochemiczne. Integracja monitoringu SoC/SoH/T (BMS/EMS) i kontrola jakości.',
+   kv:'<b>Cykliczność celowa:</b> ~6000 cykli'},
+
+  {id:'out', name:'Magazyny energii KLAB', zone:'wy', tag:'Produkt', pos:[26,0,3], size:[3.4,3,3.4], color:0x2fae76,
+   desc:'Gotowe kompozytowe akumulatory / banki magazynowe do sieci, infrastruktury krytycznej i zastosowań dual-use. Pełna identyfikowalność partii; recyklingowalne w tej samej pętli.',
+   kv:'<b>Produkcja:</b> 454 MWh/rok · <b>personel:</b> 94 osoby'},
+];
+
+const FLOWS = [
+  ['in','break',COL.pb,0.9],
+  ['break','melt',COL.pb,1.0],
+  ['break','hydro',COL.paste,1.0],
+  ['break','acid',COL.acid,0.8],
+  ['break','pp',COL.pp,0.8],
+  ['melt','elec',COL.pb,1.0],
+  ['hydro','elec',COL.pbo,0.8],
+  ['hydro','pack',COL.pbo,0.7],
+  ['pp','elec',COL.pp,0.5],
+  ['acid','break',COL.acid,0.5],   // recirculation loop
+  ['elec','pack',COL.prod,1.0],
+  ['pack','assy',COL.prod,1.0],
+  ['assy','out',COL.prod,1.1],
+];
+
+const ZONES = [
+  {name:'Recykling LAB',   min:[-21,-9], max:[-4,10], color:0x14324a},
+  {name:'Produkcja ogniw KLAB', min:[-1,-8], max:[29,7], color:0x2a1a4a},
+];
+
+let scene,camera,renderer,labelRenderer,controls,raycaster,mouse;
+let pickables=[], flowSystems=[], autoRotate=true, hovered=null;
+const clock = new THREE.Clock();
+
+init();
+animate();
+
+function init(){
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0e15);
+  scene.fog = new THREE.Fog(0x0a0e15, 55, 120);
+
+  camera = new THREE.PerspectiveCamera(52, innerWidth/innerHeight, 0.1, 400);
+  camera.position.set(-6, 34, 48);
+
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(innerWidth,innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.getElementById('app').appendChild(renderer.domElement);
+
+  labelRenderer = new THREE.CSS2DRenderer();
+  labelRenderer.setSize(innerWidth,innerHeight);
+  labelRenderer.domElement.style.position='fixed';
+  labelRenderer.domElement.style.top='0';
+  labelRenderer.domElement.style.pointerEvents='none';
+  document.getElementById('app').appendChild(labelRenderer.domElement);
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.target.set(0,1,0);
+  controls.maxPolarAngle = Math.PI*0.49;
+  controls.minDistance = 18; controls.maxDistance = 110;
+
+  // lights
+  scene.add(new THREE.HemisphereLight(0x9fc0ff, 0x0a0e15, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 1.15);
+  key.position.set(24,40,18); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.left=-50;key.shadow.camera.right=50;
+  key.shadow.camera.top=50;key.shadow.camera.bottom=-50;
+  key.shadow.camera.far=140;
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0x6a9bd8,0.5); rim.position.set(-30,20,-20); scene.add(rim);
+
+  // floor
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(140,90),
+    new THREE.MeshStandardMaterial({color:0x0e141f,roughness:1,metalness:0}));
+  floor.rotation.x=-Math.PI/2; floor.position.y=-0.02; floor.receiveShadow=true;
+  scene.add(floor);
+  const grid = new THREE.GridHelper(140,70,0x1c2b40,0x141d2b);
+  grid.position.y=0; scene.add(grid);
+
+  // zone platforms
+  ZONES.forEach(z=>{
+    const w=z.max[0]-z.min[0], d=z.max[1]-z.min[1];
+    const cx=(z.max[0]+z.min[0])/2, cz=(z.max[1]+z.min[1])/2;
+    const plat=new THREE.Mesh(new THREE.BoxGeometry(w,0.15,d),
+      new THREE.MeshStandardMaterial({color:z.color,roughness:.85,transparent:true,opacity:.55}));
+    plat.position.set(cx,0.06,cz); plat.receiveShadow=true; scene.add(plat);
+    // zone label
+    const el=document.createElement('div'); el.className='lbl zone'; el.textContent=z.name;
+    const lo=new THREE.CSS2DObject(el); lo.position.set(cx, 0.4, z.min[1]-0.3); scene.add(lo);
+  });
+
+  // stations
+  const byId={};
+  STATIONS.forEach(s=>{
+    const g=new THREE.Group(); g.position.set(s.pos[0],0,s.pos[2]);
+    const [bw,bh,bd]=s.size;
+    const body=new THREE.Mesh(new THREE.BoxGeometry(bw,bh,bd),
+      new THREE.MeshStandardMaterial({color:s.color,roughness:.42,metalness:.35}));
+    body.position.y=bh/2; body.castShadow=true; body.receiveShadow=true;
+    g.add(body);
+    // glowing top edge
+    const edge=new THREE.Mesh(new THREE.BoxGeometry(bw*1.02,0.12,bd*1.02),
+      new THREE.MeshBasicMaterial({color:s.color}));
+    edge.position.y=bh+0.06; g.add(edge);
+    // little "roof" accent
+    const cap=new THREE.Mesh(new THREE.BoxGeometry(bw*0.6,0.5,bd*0.6),
+      new THREE.MeshStandardMaterial({color:0x0e141f,roughness:.6}));
+    cap.position.y=bh+0.35; g.add(cap);
+
+    body.userData.station=s; pickables.push(body); s._body=body; s._group=g;
+    byId[s.id]=s;
+
+    const el=document.createElement('div'); el.className='lbl'; el.textContent=s.name;
+    const lo=new THREE.CSS2DObject(el); lo.position.set(0,bh+1.1,0); g.add(lo);
+    scene.add(g);
+  });
+
+  // flows (pipes + particles)
+  FLOWS.forEach(([a,b,color,rate])=>{
+    const pa=byId[a], pb=byId[b];
+    const start=new THREE.Vector3(pa.pos[0],1.0,pa.pos[2]);
+    const end=new THREE.Vector3(pb.pos[0],1.0,pb.pos[2]);
+    const mid=start.clone().add(end).multiplyScalar(0.5);
+    const dist=start.distanceTo(end);
+    mid.y += Math.min(4.5, 1.2+dist*0.14);            // arc height
+    const curve=new THREE.QuadraticBezierCurve3(start,mid,end);
+
+    // pipe tube
+    const tube=new THREE.Mesh(new THREE.TubeGeometry(curve,40,0.09,8,false),
+      new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:0.28}));
+    scene.add(tube);
+
+    // particles
+    const N=Math.round(dist*1.4*rate)+6;
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(N*3),3));
+    const mat=new THREE.PointsMaterial({color:color,size:0.5,transparent:true,opacity:0.95,
+      sizeAttenuation:true,depthWrite:false,blending:THREE.AdditiveBlending});
+    const pts=new THREE.Points(geo,mat); scene.add(pts);
+    const offs=new Float32Array(N); for(let i=0;i<N;i++) offs[i]=i/N;
+    flowSystems.push({curve,geo,offs,N,speed:0.06+0.05*rate});
+  });
+
+  raycaster=new THREE.Raycaster(); mouse=new THREE.Vector2();
+  renderer.domElement.addEventListener('pointermove',onMove);
+  renderer.domElement.addEventListener('click',onClick);
+  addEventListener('resize',onResize);
+  document.getElementById('btn-rot').onclick=()=>{autoRotate=!autoRotate;
+    document.getElementById('btn-rot').textContent=(autoRotate?'⏸':'▶')+' Auto-obrót';};
+  document.getElementById('btn-reset').onclick=resetView;
+
+  document.getElementById('loading').style.display='none';
+}
+
+function resetView(){
+  camera.position.set(-6,34,48); controls.target.set(0,1,0);
+}
+
+function onResize(){
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight); labelRenderer.setSize(innerWidth,innerHeight);
+}
+
+function setPointer(e){
+  mouse.x=(e.clientX/innerWidth)*2-1; mouse.y=-(e.clientY/innerHeight)*2+1;
+}
+function onMove(e){
+  setPointer(e); raycaster.setFromCamera(mouse,camera);
+  const hit=raycaster.intersectObjects(pickables)[0];
+  const obj=hit?hit.object:null;
+  if(hovered && hovered!==obj){ hovered.scale.set(1,1,1); hovered.material.emissive&&hovered.material.emissive.setHex(0x000000);}
+  if(obj){ obj.scale.set(1.06,1.06,1.06);
+    if(obj.material.emissive) obj.material.emissive.setHex(0x223047);
+    renderer.domElement.style.cursor='pointer'; }
+  else renderer.domElement.style.cursor='default';
+  hovered=obj;
+}
+function onClick(e){
+  setPointer(e); raycaster.setFromCamera(mouse,camera);
+  const hit=raycaster.intersectObjects(pickables)[0];
+  if(hit) showInfo(hit.object.userData.station);
+}
+function showInfo(s){
+  document.getElementById('i-tag').textContent=s.tag;
+  document.getElementById('i-title').textContent=s.name;
+  document.getElementById('i-desc').textContent=s.desc;
+  document.getElementById('i-kv').innerHTML=s.kv;
+  document.getElementById('info').style.display='block';
+}
+function hideInfo(){document.getElementById('info').style.display='none';}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=clock.getDelta();
+  flowSystems.forEach(f=>{
+    const pos=f.geo.attributes.position.array;
+    for(let i=0;i<f.N;i++){
+      f.offs[i]=(f.offs[i]+f.speed*dt)%1;
+      const p=f.curve.getPoint(f.offs[i]);
+      pos[i*3]=p.x; pos[i*3+1]=p.y; pos[i*3+2]=p.z;
+    }
+    f.geo.attributes.position.needsUpdate=true;
+  });
+  if(autoRotate){ const a=0.12*dt;
+    const x=camera.position.x, z=camera.position.z;
+    camera.position.x=x*Math.cos(a)-z*Math.sin(a);
+    camera.position.z=x*Math.sin(a)+z*Math.cos(a);
+  }
+  controls.update();
+  renderer.render(scene,camera);
+  labelRenderer.render(scene,camera);
+}
+</script>
+</body>
+</html>
